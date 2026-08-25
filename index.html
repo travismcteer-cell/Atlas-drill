@@ -359,43 +359,44 @@
     gap:8px;
   }
 
-  /* ---------- Completion overlay ---------- */
-  .overlay{
-    position:fixed; inset:0;
-    background:rgba(9,15,25,0.72);
-    display:flex; align-items:center; justify-content:center;
-    z-index:10000;
-    padding:20px;
-  }
-  .overlay .card{
-    background:#152439;
-    border:1px solid #3a5170;
-    border-radius:16px;
-    padding:32px 34px;
-    max-width:380px;
+  /* ---------- Completion panel (lives inside the tray, map stays clear) ---------- */
+  .tray-complete{
+    display:none;
+    flex-direction:column;
+    align-items:center;
     text-align:center;
-    box-shadow:0 30px 60px rgba(0,0,0,0.5);
+    justify-content:center;
+    flex:1;
+    padding:24px 10px;
+    min-height:300px;
   }
-  .overlay h2{
-    font-family:'Fraunces',serif;
-    font-size:24px;
-    margin:0 0 8px;
-    color:#f2ead3;
-  }
-  .overlay p{color:#a9bad2; font-size:14px; line-height:1.5; margin:0 0 20px;}
-  .overlay .big{
+  .tray-complete-accuracy{
     font-family:'IBM Plex Mono',monospace;
     font-size:34px;
     color:#c9a24b;
     margin-bottom:6px;
   }
-  .overlay button{
+  .tray-complete h3{
+    font-family:'Fraunces',serif;
+    font-size:20px;
+    font-weight:600;
+    margin:0 0 8px;
+    color:#f2ead3;
+  }
+  .tray-complete p{
+    color:#a9bad2;
+    font-size:13.5px;
+    line-height:1.5;
+    margin:0 0 22px;
+    max-width:220px;
+  }
+  .tray-complete button{
     background:#c9a24b;
     border:none;
     color:#1a1207;
     font-weight:700;
     font-family:'Inter',sans-serif;
-    padding:11px 20px;
+    padding:11px 22px;
     border-radius:8px;
     cursor:pointer;
     font-size:14px;
@@ -467,6 +468,12 @@
       <h2 id="trayTitle">Country names</h2>
       <p class="hint">Each country has a small target marker. Drag a label onto the map and drop it on the matching marker. Wrong drops bounce back — keep going until every label is placed.</p>
       <div class="tile-pool" id="tilePool"></div>
+      <div class="tray-complete" id="trayComplete">
+        <div class="tray-complete-accuracy" id="completeAccuracy">100%</div>
+        <h3 id="completeHeading">World complete!</h3>
+        <p id="completeSummary">240 countries placed in 240 attempts.</p>
+        <button id="playAgainBtn">Play again</button>
+      </div>
       <div class="tray-footer">
         <button class="ghost" id="shuffleBtn" style="width:100%;">Shuffle order</button>
       </div>
@@ -727,6 +734,12 @@ const MAP_DATA=[{"id":"IDN","name":"Indonesia","capital":"Jakarta","region":"Asi
 
   const tilePoolEl = document.getElementById('tilePool');
   const trayTitle = document.getElementById('trayTitle');
+  const trayHint = document.querySelector('.tray .hint');
+  const trayFooter = document.querySelector('.tray-footer');
+  const trayComplete = document.getElementById('trayComplete');
+  const completeAccuracy = document.getElementById('completeAccuracy');
+  const completeHeading = document.getElementById('completeHeading');
+  const completeSummary = document.getElementById('completeSummary');
   const statPlaced = document.getElementById('statPlaced');
   const statTotal = document.getElementById('statTotal');
   const statAccuracy = document.getElementById('statAccuracy');
@@ -791,6 +804,7 @@ const MAP_DATA=[{"id":"IDN","name":"Indonesia","capital":"Jakarta","region":"Asi
   }
 
   function renderPool(){
+    hideCompleteInTray();
     tilePoolEl.innerHTML = '';
     pool.forEach(item => {
       if (placed.has(item.id)) return;
@@ -803,6 +817,27 @@ const MAP_DATA=[{"id":"IDN","name":"Indonesia","capital":"Jakarta","region":"Asi
     });
   }
 
+  function hideCompleteInTray(){
+    trayComplete.style.display = 'none';
+    trayHint.style.display = '';
+    tilePoolEl.style.display = '';
+    trayFooter.style.display = '';
+  }
+
+  function showCompleteInTray(){
+    const total = pool.length;
+    const acc = attempts === 0 ? 0 : Math.round(correctCount/attempts*100);
+    const regionLabel = region === 'all' ? 'World' : region;
+    const noun = mode === 'countries' ? 'countries' : 'capitals';
+    completeAccuracy.textContent = acc + '%';
+    completeHeading.textContent = regionLabel + ' complete!';
+    completeSummary.textContent = total + ' ' + noun + ' placed in ' + attempts + ' attempts.';
+    trayHint.style.display = 'none';
+    tilePoolEl.style.display = 'none';
+    trayFooter.style.display = 'none';
+    trayComplete.style.display = 'flex';
+  }
+
   function updateStats(){
     const total = pool.length;
     statPlaced.textContent = placed.size;
@@ -811,7 +846,7 @@ const MAP_DATA=[{"id":"IDN","name":"Indonesia","capital":"Jakarta","region":"Asi
     statAccuracy.textContent = attempts === 0 ? '—' : Math.round(correctCount/attempts*100) + '%';
     progressFill.style.width = total === 0 ? '0%' : Math.round(placed.size/total*100) + '%';
     if (total > 0 && placed.size === total){
-      setTimeout(showComplete, 350);
+      setTimeout(showCompleteInTray, 300);
     }
   }
 
@@ -1030,24 +1065,10 @@ const MAP_DATA=[{"id":"IDN","name":"Indonesia","capital":"Jakarta","region":"Asi
     });
   });
 
-  // ---------- Completion overlay ----------
-  function showComplete(){
-    const overlay = document.createElement('div');
-    overlay.className = 'overlay';
-    const acc = attempts === 0 ? 0 : Math.round(correctCount/attempts*100);
-    overlay.innerHTML = `
-      <div class="card">
-        <div class="big">${acc}%</div>
-        <h2>Map complete</h2>
-        <p>${pool.length} ${mode === 'countries' ? 'countries' : 'capitals'} placed in ${attempts} attempts.</p>
-        <button id="playAgainBtn">Play again</button>
-      </div>`;
-    document.body.appendChild(overlay);
-    overlay.querySelector('#playAgainBtn').addEventListener('click', () => {
-      overlay.remove();
-      fullReset();
-    });
-  }
+  // ---------- Completion panel (inline in the tray) ----------
+  document.getElementById('playAgainBtn').addEventListener('click', () => {
+    fullReset();
+  });
 
   // ---------- Init ----------
   fullReset();
